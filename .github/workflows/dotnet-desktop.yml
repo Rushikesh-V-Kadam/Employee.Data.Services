@@ -1,35 +1,51 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline for Azure App Service
 
 on:
   pull_request:
-    branches: [dev, qa, main]
+    branches: [dev, qa, main]   # Build & test on PR
   push:
-    branches: [dev, qa, main]
+    branches: [dev, qa, main]   # Deploy after merge
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-dotnet@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet restore
-      - run: dotnet build --configuration Release --no-restore
-      - run: dotnet test --no-build --verbosity normal
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build project
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test --no-build --verbosity normal
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push'
+    if: github.event_name == 'push'   # ✅ Only deploy after merge
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-dotnet@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet publish -c Release -o ./publish
-      - uses: azure/webapps-deploy@v2
+
+      - name: Publish project
+        run: dotnet publish -c Release -o ./publish
+
+      - name: Deploy to Azure WebApp
+        uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ github.ref == 'refs/heads/dev' && 'myapp-dev' || github.ref == 'refs/heads/qa' && 'myapp-qa' || 'myapp-prod' }}
+          app-name: ${{ github.ref == 'refs/heads/dev' && 'myapp-dev-2026' || github.ref == 'refs/heads/qa' && 'myapp-qa' || 'myapp-prod' }}
           publish-profile: ${{ github.ref == 'refs/heads/dev' && secrets.AZURE_WEBAPP_PUBLISH_PROFILE_DEV || github.ref == 'refs/heads/qa' && secrets.AZURE_WEBAPP_PUBLISH_PROFILE_QA || secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PROD }}
           package: ./publish
